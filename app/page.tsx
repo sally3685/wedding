@@ -14,10 +14,10 @@ export default function Page() {
   const [opened, setOpened] = useState(false);
   return (
     <>
-      {/* <EnvelopeOpening onOpened={() => setOpened(true)} /> */}
+      <EnvelopeOpening onOpened={() => setOpened(true)} />
       {/* your real page here */}
-      {/* <FirstSection active={opened} /> */}
-      {/* <SecondSection /> */}
+      <FirstSection active={opened} />
+      <SecondSection />
       <ThirdSection />
     </>
   );

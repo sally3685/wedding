@@ -11,7 +11,9 @@ import localFont from "next/font/local";
 // import EnvelopeReveal from "@/components/shared/navbar/EnvelopeReveal";
 
 const ITFGHROOBARABIC = localFont({
-  src: [{ path: "../public/ZYROSERIF.otf", weight: "400", style: "normal" }],
+  src: [
+    { path: "../public/fonts/ZYROSERIF.otf", weight: "400", style: "normal" },
+  ],
   display: "swap",
   variable: "--font-zyroserif",
   fallback: ["serif"],

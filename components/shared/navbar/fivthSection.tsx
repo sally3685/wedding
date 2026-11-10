@@ -127,7 +127,7 @@ const FivthSection = () => {
   return (
     <div
       ref={rootRef}
-      className="bg-[url('/envelope/garden.png')] relative flex -top-25 justify-center flex-col items-center bg-center bg-cover w-full h-dvh"
+      className="bg-[url('/envelope/garden.png')] relative flex -mt-25 justify-center flex-col items-center bg-center bg-cover w-full h-dvh"
     >
       <div className="bg-[#F7EFE2] opacity-60 absolute w-full h-full" />
 

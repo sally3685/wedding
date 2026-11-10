@@ -17,6 +17,63 @@ const GLINT_TIME = 2.2; // seconds the glint takes to cross one flower
 const FLOWER_GAP = 0.6; // delay between top and bottom flower
 const ROW_STAGGER = 0.35; // delay between schedule rows
 
+/* ---------------- row icons ----------------
+   "blend" -> mix-blend-soft-light (PNG with a dark/black background).
+   "gold"  -> CSS mask filled with gold (PNG transparent with dark artwork).
+
+   IMPORTANT: the outer [data-icon] element is the one GSAP animates AND the
+   one that carries the blend mode. No animated ancestor exists above it, so
+   it blends with the section background from the very first frame.
+   The flip lives on an inner element, so GSAP's transform never overwrites it. */
+const ICON_STYLE = "blend" as "blend" | "gold";
+const ICON_GOLD = "rgb(212, 175, 55)";
+
+const RowIcon = ({
+  src,
+  className,
+  flip = false,
+}: {
+  src: string;
+  className: string;
+  flip?: boolean;
+}) => {
+  const inner = flip ? "scale-x-[-1]" : "";
+
+  if (ICON_STYLE === "gold") {
+    return (
+      <div data-icon className={`${className} invisible`}>
+        <div
+          className={`h-full w-full ${inner}`}
+          style={{
+            backgroundColor: ICON_GOLD,
+            WebkitMaskImage: `url('${src}')`,
+            maskImage: `url('${src}')`,
+            WebkitMaskSize: "contain",
+            maskSize: "contain",
+            WebkitMaskRepeat: "no-repeat",
+            maskRepeat: "no-repeat",
+            WebkitMaskPosition: "center",
+            maskPosition: "center",
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div data-icon className={`${className} invisible mix-blend-soft-light`}>
+      <div
+        className={`h-full w-full ${inner}`}
+        style={{
+          backgroundImage: `url('${src}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      />
+    </div>
+  );
+};
+
 /* ------------------------------------------------------------------ */
 /* A flower image with a shine layer on top                            */
 /* base  = the flower, revealed by a growing feathered circle          */
@@ -59,7 +116,7 @@ const ShineFlower = ({
         maskPosition: "center",
         WebkitMaskRepeat: "no-repeat",
         maskRepeat: "no-repeat",
-        mixBlendMode: "screen",
+        mixBlendMode: "soft-light",
       }}
     />
     {children}
@@ -90,13 +147,17 @@ const FourthSection = () => {
     const leaves = q("[data-leaf]") as HTMLElement[];
     const flowers = q("[data-flower]") as HTMLElement[];
     const rows = q("[data-row]") as HTMLElement[];
+    const icons = q("[data-icon]") as HTMLElement[];
+    const texts = q("[data-text]") as HTMLElement[];
     const glows = q("[data-glow]") as HTMLElement[];
 
     const mm = gsap.matchMedia();
 
     // reduced motion: just show everything, no animation
     mm.add("(prefers-reduced-motion: reduce)", () => {
-      gsap.set(q("[data-base], [data-intro], [data-row]"), { autoAlpha: 1 });
+      gsap.set(q("[data-base], [data-intro], [data-icon], [data-text]"), {
+        autoAlpha: 1,
+      });
     });
 
     mm.add("(prefers-reduced-motion: no-preference)", () => {
@@ -150,10 +211,13 @@ const FourthSection = () => {
         });
       });
 
-      // texts start hidden
-      gsap.set([...rows, one("title"), one("sep1")].filter(Boolean), {
-        autoAlpha: 0,
-      });
+      // everything starts hidden (the row wrappers themselves are never animated)
+      gsap.set(
+        [...icons, ...texts, one("title"), one("sep1")].filter(Boolean),
+        {
+          autoAlpha: 0,
+        },
+      );
 
       const master = gsap.timeline({
         scrollTrigger: { trigger: root, start: "top 60%", once: true },
@@ -215,7 +279,7 @@ const FourthSection = () => {
         filter: "blur(0px)",
         duration: 1.1,
         ease: "power3.out",
-        clearProps: "filter",
+        clearProps: "filter,transform",
       };
 
       master.addLabel("text", "-=0.5");
@@ -240,8 +304,17 @@ const FourthSection = () => {
         );
       }
 
-      // the three rows, one after another
-      master.fromTo(rows, from, { ...to, stagger: ROW_STAGGER }, "text+=1");
+      // the three rows, one after another.
+      // icon + text are animated separately so no animated parent
+      // ever isolates the blended icon.
+      rows.forEach((_, i) => {
+        master.fromTo(
+          [icons[i], texts[i]],
+          from,
+          to,
+          `text+=${1 + i * ROW_STAGGER}`,
+        );
+      });
 
       // a gold glow passes over the times
       const rowsEnd = 1 + (rows.length - 1) * ROW_STAGGER;
@@ -318,7 +391,7 @@ const FourthSection = () => {
   return (
     <div
       ref={rootRef}
-      className="bg-[url('/envelope/secondbg.png')] -top-35 z-2 relative overflow-x-clip bg-cover bg-no-repeat bg-center flex flex-col justify-center items-center w-full h-screen"
+      className="bg-[url('/envelope/secondbg.png')] -mt-30 z-2 relative overflow-x-clip bg-cover bg-no-repeat bg-center flex flex-col justify-center items-center w-full h-screen"
       style={{ backgroundSize: "100% 100%" }}
     >
       {/* leaves hide here, behind the flowers and the text */}
@@ -356,40 +429,58 @@ const FourthSection = () => {
           className="invisible bg-[url('/envelope/goldenSeperator.png')] w-full h-8 -inset-s-10 scale-y-[-1] bg-center bg-contain bg-no-repeat"
         ></div>
 
-        <div className="flex flex-col w-[85%] gap-6">
-          <div data-row className="invisible flex justify-between items-center">
-            <div className="bg-[url('/envelope/rings.svg')] w-18 h-14.5 shrink-0 bg-cover bg-center"></div>
-            <div className="flex flex-col gap-0.5 items-end">
-              <p className="text-sm leading-tight">الاستقبال</p>
+        <div className="flex flex-col w-[80%] gap-6">
+          <div data-row className="flex justify-between items-center">
+            <RowIcon
+              src="/envelope/ringWedding.png"
+              className="w-20 h-16 shrink-0"
+            />
+            <div
+              data-text
+              className="invisible flex justify-center flex-col gap-0.5 items-center text-red-950"
+            >
+              <p className="text-base leading-tight">الاستقبال</p>
               <p
                 data-glow
-                className="text-xs leading-tight tabular-nums"
+                className="text-base leading-tight tabular-nums"
                 dir="ltr"
               >
                 11:00 PM
               </p>
             </div>
           </div>
-          <div data-row className="invisible flex justify-between items-center">
-            <div className="bg-[url('/envelope/bride.svg')] w-25 h-25 shrink-0 bg-cover bg-center"></div>
-            <div className="flex flex-col gap-0.5 items-end">
-              <p className="text-sm leading-tight">زفة العروس</p>
+
+          <div data-row className="flex justify-between items-center">
+            <RowIcon src="/envelope/bride.png" className="w-25 h-25 shrink-0" />
+            <div
+              data-text
+              className="invisible flex flex-col justify-center gap-0.5 items-center text-red-950"
+            >
+              <p className="text-base leading-tight">زفة العروس</p>
               <p
                 data-glow
-                className="text-xs leading-tight tabular-nums"
+                className="text-base leading-tight tabular-nums"
                 dir="ltr"
               >
                 11:00 PM
               </p>
             </div>
           </div>
-          <div data-row className="invisible flex justify-between items-center">
-            <div className="bg-[url('/envelope/brideMan.svg')] w-20 h-25 shrink-0 bg-cover bg-center"></div>
-            <div className="flex flex-col gap-0.5 items-end">
-              <p className="text-sm leading-tight">المغادرة</p>
+
+          <div data-row className="flex justify-between items-center">
+            <RowIcon
+              src="/envelope/brideMan.png"
+              className="w-30 h-28 shrink-0"
+              flip
+            />
+            <div
+              data-text
+              className="invisible flex flex-col justify-center gap-0.5 items-center text-red-950"
+            >
+              <p className="text-base leading-tight">المغادرة</p>
               <p
                 data-glow
-                className="text-xs leading-tight tabular-nums"
+                className="text-base leading-tight tabular-nums"
                 dir="ltr"
               >
                 11:00 PM

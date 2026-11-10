@@ -440,7 +440,7 @@ const FirstSection = ({ active }: FirstSectionProps) => {
       ref={rootRef}
       className="bg-[url('/envelope/mainbg.png')] relative flex justify-center flex-col items-center bg-center bg-cover w-full h-dvh"
     >
-      <div className="bg-[#F7EFE2] opacity-40 absolute w-full h-full "></div>
+      <div className="bg-[#F7EFE2] opacity-60 absolute w-full h-full "></div>
 
       <div
         data-intro="title"

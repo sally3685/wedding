@@ -17,7 +17,7 @@ export default function Page() {
   const [opened, setOpened] = useState(false);
   return (
     <>
-      <EnvelopeOpening onOpened={() => setOpened(true)} />
+      {/* <EnvelopeOpening onOpened={() => setOpened(true)} /> */}
       <FirstSection active={opened} />
       <SecondSection />
       <ThirdSection />

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import gsap from "gsap";
 
 const REVEAL_AT = 0.5; // reveal once ~50% is scratched
@@ -437,8 +438,16 @@ const FirstSection = ({ active }: FirstSectionProps) => {
   return (
     <div
       ref={rootRef}
-      className="bg-[url('/envelope/mainbg.png')] relative flex justify-center flex-col items-center bg-center bg-cover w-full h-dvh"
+      className="relative flex justify-center flex-col items-center w-full h-dvh"
     >
+      <Image
+        src="/envelope/mainbg.png"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="absolute inset-0 z-0 object-cover object-center"
+      />
       <div className="bg-[#F7EFE2] opacity-60 absolute w-full h-full "></div>
 
       <div
@@ -452,8 +461,16 @@ const FirstSection = ({ active }: FirstSectionProps) => {
 
       <div
         data-intro="sep1"
-        className="invisible bg-[url('/envelope/flowerSeperator.png')] w-3/4 h-20 -inset-s-10 scale-y-[-1] bg-center bg-contain bg-no-repeat"
-      ></div>
+        className="invisible relative w-full h-20  scale-y-[-1]"
+      >
+        <Image
+          src="/envelope/flowerSeperator.png"
+          alt=""
+          fill
+          sizes="100vw"
+          className="object-contain object-center"
+        />
+      </div>
 
       <div className="flex flex-col gap-5 items-center">
         {/* hint only on mobile, where scratching exists */}
@@ -461,7 +478,7 @@ const FirstSection = ({ active }: FirstSectionProps) => {
           <div
             ref={hintRef}
             data-intro="hint"
-            className="invisible z-2 font-bold font-sans text-sm text-red-950"
+            className="invisible z-2 font-bold font-sans text-lg text-red-950"
           >
             <p>امسح للكشف عن موعدنا</p>
           </div>
@@ -509,17 +526,22 @@ const FirstSection = ({ active }: FirstSectionProps) => {
             type="button"
             data-intro="fallback"
             onClick={showDate}
-            className="invisible z-2 font-sans text-xs underline font-bold text-center text-red-950/70"
+            className="invisible z-2 font-sans underline font-bold text-center text-red-950/70"
           >
             إظهار الموعد
           </button>
         )}
       </div>
 
-      <div
-        data-intro="sep2"
-        className="invisible bg-[url('/envelope/flowerSeperator.png')] w-3/4 h-20 -inset-s-10 z-2 bg-center bg-contain bg-no-repeat"
-      ></div>
+      <div data-intro="sep2" className="invisible relative w-full h-20 z-2">
+        <Image
+          src="/envelope/flowerSeperator.png"
+          alt=""
+          fill
+          sizes="100vw"
+          className="object-contain object-center"
+        />
+      </div>
 
       {/* scroll-down arrows under the second border; space is reserved so nothing shifts when they appear */}
       <div

@@ -1,7 +1,7 @@
 // components/EnvelopeLoader.tsx
 export default function EnvelopeLoader({
   paperColor = "#f3ece0",
-  text = "الرجاء الانتظار قليلا",
+  text = "الرجاء الانتظار",
   fading = false,
   onFaded,
   zIndex = 9999,

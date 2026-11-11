@@ -1,22 +1,25 @@
 "use client";
 
 import React, { useEffect, useRef, type ReactNode } from "react";
+import Image from "next/image";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 /* ---------------- leaves ---------------- */
-const WIND_DIR = -1; // -1 = leaves spin/blow to the left
-const LEAF_COUNT = 24;
+const LEAF_COUNT = 14; // was 24 - fewer layers = smoother scroll
 const ORIGIN = { x: 40, y: 35 }; // where the leaves hide behind flower1 (% of its box)
 const SPREAD = { x: 40, y: 50 };
+
+/* ---------------- leaves timing ---------------- */
+const LEAVES_DELAY = 1.2; // seconds after flower1 appears before the leaves start flying
 
 /* ---------------- shine + timing ---------------- */
 const GOLD = "249, 218, 99"; // same golds as the envelope seal
 const GOLD_CORE = "255, 240, 190";
-const GLINT_TIME = 2.2; // seconds the glint takes to cross one flower
+const GLINT_TIME = 3.0; // glint duration across one flower (timeline units, scrubbed)
 const FLOWER_GAP = 0.6; // delay between flower1 and flower2
-const TEXT_STAGGER = 0.3; // delay between text lines
-const TEXT_TIME = 1.1; // each line's fade-in time
+const TEXT_STAGGER = 0.4; // delay between text lines
+const TEXT_TIME = 1.3; // each line's fade-in time
 
 /* ------------------------------------------------------------------ */
 /* A flower image with a shine layer on top                            */
@@ -35,11 +38,15 @@ const ShineFlower = ({
   children?: ReactNode;
 }) => (
   <div className={className} data-flower data-ox={origin.x} data-oy={origin.y}>
-    <div
-      data-base
-      className="invisible absolute inset-0 bg-center bg-contain bg-no-repeat"
-      style={{ backgroundImage: `url('${src}')` }}
-    />
+    <div data-base className="invisible absolute inset-0">
+      <Image
+        src={src}
+        alt=""
+        fill
+        sizes="(max-width: 768px) 75vw, 60vw"
+        className="object-contain object-center"
+      />
+    </div>
     <div
       data-shine
       className="invisible pointer-events-none absolute inset-0"
@@ -119,16 +126,26 @@ const SecondSection = () => {
         const lead = maxR * 0.05; // sharp leading edge
         const st = { r: 0, amp: 0 };
 
+        // Pure function of `st`, so it is correct in both scroll directions.
         const paint = () => {
           const edge = st.r;
-          // reveal: flower visible inside the circle
-          setMask(
-            base,
-            `radial-gradient(circle at ${ox}px ${oy}px, #000 ${Math.max(edge - feather, 0)}px, transparent ${edge}px)`,
-          );
-          // glint: comet ring just inside the edge, strength follows st.amp
-          const g = edge - feather * 0.25;
+          const done = edge >= maxR + feather - 0.5;
+
+          // finished: drop the mask entirely (cheaper to render)
+          if (done) clearMask(base);
+          else
+            setMask(
+              base,
+              `radial-gradient(circle at ${ox}px ${oy}px, #000 ${Math.max(edge - feather, 0)}px, transparent ${edge}px)`,
+            );
+
+          // the shine layer only exists while the glint is alive
+          const alive = st.amp > 0.001;
+          shine.style.visibility = alive ? "visible" : "hidden";
+          if (!alive) return;
+
           shine.style.opacity = String(st.amp);
+          const g = edge - feather * 0.25;
           shine.style.background = `radial-gradient(circle at ${ox}px ${oy}px,
             rgba(${GOLD},0) ${g - tail}px,
             rgba(${GOLD},0.45) ${g - tail * 0.3}px,
@@ -152,6 +169,7 @@ const SecondSection = () => {
           y: start[i].y,
           rotation: rand(-40, 40),
           transformPerspective: 500,
+          force3D: true,
         });
       });
 
@@ -159,20 +177,36 @@ const SecondSection = () => {
       gsap.set(lines, { autoAlpha: 0 });
       gsap.set(extras, { autoAlpha: 0 });
 
-      const master = gsap.timeline({
-        scrollTrigger: { trigger: root, start: "top 55%", once: true },
+      /* ============ 1. FLOWERS: each one has its OWN scrubbed trigger ============ */
+      // small decorations belong to the flower that contains them
+      const extrasByFlower: HTMLElement[][] = flowers.map(() => []);
+      extras.forEach((el) => {
+        const owner = el.closest("[data-flower]") as HTMLElement | null;
+        const idx = owner ? flowers.indexOf(owner) : 0;
+        extrasByFlower[Math.max(idx, 0)].push(el);
       });
 
-      /* ============ 1. FLOWERS: gold glint + reveal ============ */
       rigs.forEach((rig, i) => {
-        const t0 = i * FLOWER_GAP;
         rig.paint(); // r = 0 -> nothing shows yet
 
-        master.set(rig.base, { autoAlpha: 1 }, t0);
-        master.set(rig.shine, { visibility: "visible" }, t0);
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: rig.el, // starts when THIS flower reaches the screen
+            // flower1 (top corner) keeps its range; the last flower sits at the very
+            // bottom of the page, so it starts as soon as its top edge enters the
+            // screen and finishes when its bottom edge is visible (always reachable)
+            start: i === 0 ? "top 95%" : "top bottom",
+            end: i === 0 ? "top 25%" : "bottom 65%",
+            scrub: 1.25,
+            invalidateOnRefresh: true,
+          },
+          defaults: { overwrite: false },
+        });
+
+        tl.set(rig.base, { autoAlpha: 1 }, 0);
 
         // the circle + glint grow from the flower's centre outward
-        master.to(
+        tl.to(
           rig.st,
           {
             r: rig.maxR + rig.feather,
@@ -180,10 +214,10 @@ const SecondSection = () => {
             ease: "power1.inOut",
             onUpdate: rig.paint,
           },
-          t0,
+          0,
         );
         // glint flares up fast, then dies away
-        master.to(
+        tl.to(
           rig.st,
           {
             amp: 1,
@@ -191,9 +225,9 @@ const SecondSection = () => {
             ease: "power2.out",
             onUpdate: rig.paint,
           },
-          t0,
+          0,
         );
-        master.to(
+        tl.to(
           rig.st,
           {
             amp: 0,
@@ -201,71 +235,64 @@ const SecondSection = () => {
             ease: "power1.in",
             onUpdate: rig.paint,
           },
-          t0 + GLINT_TIME * 0.4,
+          GLINT_TIME * 0.4,
         );
-        // clean up: drop the mask so nothing is left over
-        master.call(
-          () => {
-            clearMask(rig.base);
-            rig.shine.style.visibility = "hidden";
-          },
-          [],
-          t0 + GLINT_TIME + 0.05,
-        );
+
+        // its leaves / small flowers / decorations bloom in after the glint
+        extrasByFlower[i].forEach((el) => {
+          tl.fromTo(
+            el,
+            { autoAlpha: 0, scale: 0.94 },
+            { autoAlpha: 1, scale: 1, duration: 1.3, ease: "power2.out" },
+            GLINT_TIME * 0.6,
+          );
+        });
       });
 
-      // leaves, small flowers and decorations bloom in after their flower
-      extras.forEach((el) => {
-        const owner = el.closest("[data-flower]") as HTMLElement | null;
-        const idx = owner ? flowers.indexOf(owner) : 0;
-        master.fromTo(
-          el,
-          { autoAlpha: 0, scale: 0.8 },
-          { autoAlpha: 1, scale: 1, duration: 1, ease: "back.out(1.4)" },
-          idx * FLOWER_GAP + GLINT_TIME * 0.6,
-        );
+      /* ============ 2. TEXT: scrubbed over the text block's own position ============ */
+      const textTl = gsap.timeline({
+        scrollTrigger: {
+          trigger: lines[0],
+          endTrigger: lines[lines.length - 1],
+          start: "top 85%",
+          end: "bottom 55%",
+          scrub: 1.25,
+          invalidateOnRefresh: true,
+        },
       });
-
-      /* ============ 2. TEXT: soft blur-fade, line by line ============ */
-      master.addLabel("text", "-=0.5");
-      master.fromTo(
+      textTl.fromTo(
         lines,
-        { autoAlpha: 0, y: 18, filter: "blur(8px)" },
+        { autoAlpha: 0, y: 14 },
         {
           autoAlpha: 1,
           y: 0,
-          filter: "blur(0px)",
           duration: TEXT_TIME,
-          ease: "power3.out",
+          ease: "power2.out",
           stagger: TEXT_STAGGER,
-          clearProps: "filter",
         },
-        "text",
+        0,
       );
       // a gold glow passes over the names as they appear
-      master.fromTo(
+      textTl.fromTo(
         glows,
         { textShadow: "0 0 0px rgba(212,175,55,0)" },
         {
           textShadow: "0 0 16px rgba(212,175,55,0.9)",
-          duration: 0.9,
+          duration: 1.2,
           yoyo: true,
           repeat: 1,
           ease: "sine.inOut",
           stagger: 0.25,
         },
-        `text+=${(lines.length - 2) * TEXT_STAGGER + 0.6}`,
+        (lines.length - 2) * TEXT_STAGGER + 0.6,
       );
 
-      /* ============ 3. LEAVES: blow out from behind flower1 ============ */
-      master.addLabel(
-        "leaves",
-        `text+=${(lines.length - 1) * TEXT_STAGGER + 0.4}`,
-      );
+      /* ============ 3. LEAVES: normal time-based flight, plays ONCE ============ */
+      // not scrubbed: starts when flower1 first shows, then flies on its own
+      const leavesTl = gsap.timeline({ paused: true, delay: LEAVES_DELAY });
 
       // one landing spot per leaf along the BOTTOM edge, from the left corner to the
       // right corner, shuffled so neighbouring leaves don't land next to each other.
-      // flower = tip of the triangle, bottom edge = its base.
       const exits = gsap.utils.shuffle(
         leaves.map(
           (_, i) => -40 + ((i + rand(0.1, 0.9)) / leaves.length) * (W + 80),
@@ -279,19 +306,19 @@ const SecondSection = () => {
         const vy = H + 80 - c.y; // always > 0: leaves only ever go DOWN
 
         const dist = Math.hypot(vx, vy);
-        const speed = rand(220, 380);
+        const speed = rand(150, 240);
         const flyTime = dist / speed;
-        const at = (i / leaves.length) * 6 + rand(0, 0.5);
-        const wobbleTime = rand(0.5, 0.9);
+        const at = (i / leaves.length) * 7 + rand(0, 0.6);
+        const wobbleTime = rand(0.8, 1.3);
 
-        master.to(
+        leavesTl.to(
           leaf,
-          { autoAlpha: 1, scale: rand(0.7, 1.3), duration: 0.35 },
-          `leaves+=${at}`,
+          { autoAlpha: 1, scale: rand(0.7, 1.3), duration: 0.5 },
+          at,
         );
 
         // same ease on x and y = a clean straight line along the triangle's edge
-        master.to(
+        leavesTl.to(
           leaf,
           {
             x: start[i].x + vx,
@@ -300,12 +327,13 @@ const SecondSection = () => {
             rotationY: rand(540, 1440),
             duration: flyTime,
             ease: "power1.inOut",
+            force3D: true,
           },
-          `leaves+=${at}`,
+          at,
         );
 
         // small flutter so it feels like wind, not laser beams
-        master.to(
+        leavesTl.to(
           leaf,
           {
             yPercent: rand(-200, 200),
@@ -315,14 +343,18 @@ const SecondSection = () => {
             repeat: Math.round(flyTime / wobbleTime),
             ease: "sine.inOut",
           },
-          `leaves+=${at}`,
+          at,
         );
 
-        master.to(
-          leaf,
-          { autoAlpha: 0, duration: 0.4 },
-          `leaves+=${at + flyTime - 0.4}`,
-        );
+        leavesTl.to(leaf, { autoAlpha: 0, duration: 0.4 }, at + flyTime - 0.4);
+      });
+
+      // fire once, the first time flower1 comes into view
+      ScrollTrigger.create({
+        trigger: flowers[0],
+        start: "top 80%",
+        once: true,
+        onEnter: () => leavesTl.play(),
       });
     });
 
@@ -332,20 +364,39 @@ const SecondSection = () => {
   return (
     <div
       ref={rootRef}
-      className="bg-[url('/envelope/secondbg.png')] z-2 relative overflow-x-clip bg-no-repeat bg-center flex flex-col justify-start items-center -top-10 w-full min-h-dvh pt-10 pb-[34vw]"
-      style={{ backgroundSize: "100% 100%" }}
+      className="z-2 relative overflow-x-clip flex flex-col justify-start items-center -top-10 w-full min-h-dvh pt-10 pb-[34vw]"
     >
+      <Image
+        src="/envelope/secondbg.png"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="pointer-events-none absolute inset-0 z-0 object-fill object-center"
+      />
       <div
         data-extra
-        className="invisible bg-[url('/envelope/Asset_2_1.png')] absolute w-1/4 h-20 -inset-e-8 top-5 bg-center bg-contain bg-no-repeat"
-      ></div>
+        className="invisible absolute w-1/4 h-20 -inset-e-8 top-5"
+      >
+        <Image
+          src="/envelope/Asset_2_1.png"
+          alt=""
+          fill
+          sizes="25vw"
+          className="object-contain object-center"
+        />
+      </div>
 
       {/* frame: in the normal flow, so it grows with the text.
         pt = room for flower1, pb = room for flower2 (both scale with screen width) */}
-      <div
-        className="bg-[url('/envelope/border.png')] relative w-[95%] min-h-[calc(100dvh-5rem)] pt-[48vw] pb-[50vw] bg-center bg-no-repeat"
-        style={{ backgroundSize: "100% 100%" }}
-      >
+      <div className="relative w-[95%] min-h-[calc(100dvh-5rem)] pt-[48vw] pb-[50vw]">
+        <Image
+          src="/envelope/border.png"
+          alt=""
+          fill
+          sizes="95vw"
+          className="pointer-events-none absolute inset-0 -z-0 object-fill object-center"
+        />
         <div className="flex flex-col items-center z-2 w-full justify-center relative text-red-950 font-bold text-[clamp(11px,3.4vw,16px)] leading-[1.9] text-center px-[6vw]">
           <div className="w-full">
             <p data-reveal className="invisible">
@@ -411,9 +462,19 @@ const SecondSection = () => {
             <div
               key={i}
               data-leaf
-              className="bg-[url('/envelope/leaf1.png')] invisible absolute z-0 w-1/5 h-8 bg-center bg-contain bg-no-repeat"
+              className="invisible absolute z-0 w-1/5 h-8 will-change-transform"
               style={{ left: `${ORIGIN.x}%`, top: `${ORIGIN.y}%` }}
-            ></div>
+            >
+              <Image
+                src="/envelope/leaf1.png"
+                alt=""
+                fill
+                sizes="15vw"
+                loading="eager"
+                decoding="async"
+                className="object-contain object-center"
+              />
+            </div>
           ))}
 
           <ShineFlower
@@ -423,8 +484,16 @@ const SecondSection = () => {
           >
             <div
               data-extra
-              className="invisible bg-[url('/envelope/leaf2.png')] absolute w-1/5 h-8 inset-s-15 -bottom-10 bg-center bg-contain bg-no-repeat"
-            ></div>
+              className="invisible absolute w-1/5 h-8 inset-s-15 -bottom-10"
+            >
+              <Image
+                src="/envelope/leaf2.png"
+                alt=""
+                fill
+                sizes="15vw"
+                className="object-contain object-center"
+              />
+            </div>
           </ShineFlower>
         </div>
 
@@ -436,12 +505,29 @@ const SecondSection = () => {
         >
           <div
             data-extra
-            className="invisible bg-[url('/envelope/Asset_2_2.png')] absolute w-1/4 h-20 inset-e-5 -top-14 bg-center bg-contain bg-no-repeat"
-          ></div>
+            className="invisible absolute w-1/4 h-20 inset-e-5 -top-14"
+          >
+            <Image
+              src="/envelope/Asset_2_2.png"
+              alt=""
+              fill
+              sizes="25vw"
+              className="object-contain object-center"
+            />
+          </div>
           <div
             data-extra
-            className="invisible bg-[url('/envelope/leaf1.png')] absolute w-1/5 h-8 inset-e-5 -top-25 bg-center bg-contain bg-no-repeat"
-          ></div>
+            className="invisible absolute w-1/5 h-8 inset-e-5 -top-25"
+          >
+            <Image
+              src="/envelope/leaf1.png"
+              alt=""
+              fill
+              sizes="15vw"
+              loading="eager"
+              className="object-contain object-center"
+            />
+          </div>
         </ShineFlower>
       </div>
     </div>

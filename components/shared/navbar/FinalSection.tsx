@@ -4,22 +4,30 @@ import React, { useEffect, useRef, type ReactNode } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Link from "next/link";
+import Image from "next/image";
 
 /* ---------------- leaves ---------------- */
-const LEAF_COUNT = 28;
+const LEAF_COUNT = 14; // was 28 - fewer layers = smoother scroll
 const SPAWN_Y = 50; // px above the top edge where leaves wait (hidden by the clip)
 const WIND = -1; // slight lean: -1 = left, 1 = right, 0 = straight down
+const SIDES_TIME = 4.2; // how long li / ri take to slide in (seconds)
+const LEAVES_DELAY = 1.2; // seconds after the flower first shows before the leaves start
 
 /* ---------------- shine + timing ---------------- */
 const GOLD = "249, 218, 99";
 const GOLD_CORE = "255, 240, 190";
 const GLOW = "212, 175, 55";
-const GLINT_TIME = 2.2; // seconds the glint takes to cross the flower
+const GLINT_TIME = 3.0; // glint duration across the flower (scrubbed)
 
-const SIDES_AT = 0.4; // li / ri start sliding in (seconds)
-const SIDES_TIME = 3.2; // how long the slide takes
-const TEXT_AT = 0.9; // text starts while the glint is still crossing the flower
-const TEXT_STEP = 0.32; // gap between text items (they overlap, like the other sections)
+/* ---------------- scroll ----------------
+   Every block (flower, each text, the two bottom images) reveals by its OWN
+   position on screen, scrubbed by the scroll.
+   Text: block top at 98% of the screen (just entering) -> block top at 50%.
+   Bigger gap = slower, clearer reveal.
+   clamp() keeps the end point reachable even when the page can't scroll any
+   further (needs GSAP 3.12+). */
+const REVEAL_START = "clamp(top 90%)";
+const REVEAL_END = "clamp(top 30%)";
 
 const ShineFlower = ({
   src,
@@ -35,16 +43,19 @@ const ShineFlower = ({
   children?: ReactNode;
 }) => (
   <div className={className} data-flower data-ox={origin.x} data-oy={origin.y}>
-    <div
-      data-base
-      className="invisible absolute inset-0"
-      style={{
-        backgroundImage: `url('${src}')`,
-        backgroundSize: fit,
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    />
+    <div data-base className="invisible absolute inset-0">
+      <Image
+        src={src}
+        alt=""
+        fill
+        sizes="26vw"
+        className={
+          fit === "cover"
+            ? "object-cover object-center"
+            : "object-contain object-center"
+        }
+      />
+    </div>
     <div
       data-shine
       className="invisible pointer-events-none absolute inset-0"
@@ -88,12 +99,15 @@ const FinalSection = () => {
     const leaves = q("[data-leaf]") as HTMLElement[];
     const flowers = q("[data-flower]") as HTMLElement[];
     const sides = q("[data-side]") as HTMLElement[];
+    const extras = q("[data-extra]") as HTMLElement[];
 
     const mm = gsap.matchMedia();
 
     // reduced motion: just show everything, no animation, no leaves
     mm.add("(prefers-reduced-motion: reduce)", () => {
-      gsap.set(q("[data-base], [data-intro], [data-side]"), { autoAlpha: 1 });
+      gsap.set(q("[data-base], [data-intro], [data-side], [data-extra]"), {
+        autoAlpha: 1,
+      });
     });
 
     mm.add("(prefers-reduced-motion: no-preference)", () => {
@@ -123,14 +137,26 @@ const FinalSection = () => {
         const lead = maxR * 0.05;
         const st = { r: 0, amp: 0 };
 
+        // Pure function of `st`, so it is correct in both scroll directions.
         const paint = () => {
           const edge = st.r;
-          setMask(
-            base,
-            `radial-gradient(circle at ${ox}px ${oy}px, #000 ${Math.max(edge - feather, 0)}px, transparent ${edge}px)`,
-          );
-          const g = edge - feather * 0.25;
+          const done = edge >= maxR + feather - 0.5;
+
+          // finished: drop the mask entirely (cheaper to render)
+          if (done) clearMask(base);
+          else
+            setMask(
+              base,
+              `radial-gradient(circle at ${ox}px ${oy}px, #000 ${Math.max(edge - feather, 0)}px, transparent ${edge}px)`,
+            );
+
+          // the shine layer only exists while the glint is alive
+          const alive = st.amp > 0.001;
+          shine.style.visibility = alive ? "visible" : "hidden";
+          if (!alive) return;
+
           shine.style.opacity = String(st.amp);
+          const g = edge - feather * 0.25;
           shine.style.background = `radial-gradient(circle at ${ox}px ${oy}px,
             rgba(${GOLD},0) ${g - tail}px,
             rgba(${GOLD},0.45) ${g - tail * 0.3}px,
@@ -138,11 +164,11 @@ const FinalSection = () => {
             rgba(${GOLD_CORE},0) ${g + lead}px)`;
         };
 
-        return { base, shine, st, maxR, feather, paint };
+        return { el, base, shine, st, maxR, feather, paint };
       });
 
       /* ---------- start states ---------- */
-      // leaves: one slot each across the width, already at their final size, hidden above the top edge
+      // leaves: one slot each across the width, hidden above the top edge
       const n = leaves.length;
       const slots = gsap.utils.shuffle(
         leaves.map((_, i) => (i + rand(0.1, 0.9)) / n),
@@ -154,10 +180,11 @@ const FinalSection = () => {
           scale: rand(0.7, 1.3),
           rotation: rand(-40, 40),
           transformPerspective: 500,
+          force3D: true,
         });
       });
 
-      // li / ri wait completely off-screen on their own side (no fade, they just slide)
+      // li / ri wait completely off-screen on their own side
       sides.forEach((el, i) => gsap.set(el, { x: offscreen[i] }));
 
       // text starts hidden
@@ -170,18 +197,32 @@ const FinalSection = () => {
         autoAlpha: 0,
       });
 
-      const master = gsap.timeline({
-        scrollTrigger: { trigger: root, start: "top 60%", once: true },
-      });
+      /* helper: a timeline scrubbed by ONE block's own position on screen */
+      const scrubTl = (
+        trigger: Element,
+        start = REVEAL_START,
+        end = REVEAL_END,
+      ) =>
+        gsap.timeline({
+          scrollTrigger: {
+            trigger,
+            start,
+            end,
+            scrub: 1.25, // smooths the scroll -> animation link
+            invalidateOnRefresh: true,
+          },
+          defaults: { overwrite: false },
+        });
 
-      /* ============ 1. FLOWER: gold glint + reveal ============ */
+      /* ============ 1. FLOWER: its OWN scrubbed trigger ============ */
       rigs.forEach((rig) => {
         rig.paint(); // r = 0 -> nothing shows yet
 
-        master.set(rig.base, { autoAlpha: 1 }, 0);
-        master.set(rig.shine, { visibility: "visible" }, 0);
+        const tl = scrubTl(rig.el, "clamp(top 95%)", "clamp(center 30%)");
 
-        master.to(
+        tl.set(rig.base, { autoAlpha: 1 }, 0);
+
+        tl.to(
           rig.st,
           {
             r: rig.maxR + rig.feather,
@@ -191,7 +232,7 @@ const FinalSection = () => {
           },
           0,
         );
-        master.to(
+        tl.to(
           rig.st,
           {
             amp: 1,
@@ -201,7 +242,7 @@ const FinalSection = () => {
           },
           0,
         );
-        master.to(
+        tl.to(
           rig.st,
           {
             amp: 0,
@@ -211,41 +252,28 @@ const FinalSection = () => {
           },
           GLINT_TIME * 0.4,
         );
-        master.call(
-          () => {
-            clearMask(rig.base);
-            rig.shine.style.visibility = "hidden";
-          },
-          [],
-          GLINT_TIME + 0.05,
-        );
+
+        // the small decoration blooms in after the glint
+        if (extras.length) {
+          tl.fromTo(
+            extras,
+            { autoAlpha: 0, scale: 0.94 },
+            { autoAlpha: 1, scale: 1, duration: 1.3, ease: "power2.out" },
+            GLINT_TIME * 0.6,
+          );
+        }
       });
-      const extras = q("[data-extra]");
-      master.fromTo(
-        extras,
-        { autoAlpha: 0, scale: 0.8 },
-        { autoAlpha: 1, scale: 1, duration: 1, ease: "back.out(1.4)" },
-        GLINT_TIME * 0.6,
-      );
 
-      /* ============ 3. TEXT: overlapping blur-fade, like the other sections ============ */
-      const from = { autoAlpha: 0, y: 18, filter: "blur(8px)" };
-      const to = {
-        autoAlpha: 1,
-        y: 0,
-        filter: "blur(0px)",
-        duration: 1.1,
-        ease: "power3.out",
-        clearProps: "filter",
-      };
+      /* ============ 2. TEXT: each block by its own position ============ */
+      // no blur filter (slow while scrolling), no clearProps (must run backwards)
+      const from = { autoAlpha: 0, y: 14 };
+      const to = { autoAlpha: 1, y: 0, duration: 1.2, ease: "power2.out" };
 
-      master.addLabel("text", TEXT_AT);
+      if (title) scrubTl(title).fromTo(title, from, to);
 
-      if (title) master.fromTo(title, from, to, "text");
-
-      // separator unfurls from the centre, overlapping the title
+      // separator unfurls from the centre
       if (sep) {
-        master.fromTo(
+        scrubTl(sep).fromTo(
           sep,
           { autoAlpha: 0, clipPath: "inset(0% 50% 0% 50%)" },
           {
@@ -253,67 +281,84 @@ const FinalSection = () => {
             clipPath: "inset(0% 0% 0% 0%)",
             duration: 1.3,
             ease: "power2.inOut",
-            clearProps: "clipPath",
           },
-          `text+=${TEXT_STEP}`,
         );
       }
 
-      if (paragraph) {
-        master.fromTo(paragraph, from, to, `text+=${TEXT_STEP * 2}`);
-      }
+      if (paragraph) scrubTl(paragraph).fromTo(paragraph, from, to);
 
       if (date) {
-        master.fromTo(date, from, to, `text+=${TEXT_STEP * 3}`);
+        const dateTl = scrubTl(date);
+        dateTl.fromTo(date, from, to, 0);
         // gold glow passes over the date
-        master.fromTo(
+        dateTl.fromTo(
           date,
           { textShadow: `0 0 0px rgba(${GLOW},0)` },
           {
             textShadow: `0 0 14px rgba(${GLOW},0.9)`,
-            duration: 0.8,
+            duration: 1.1,
             yoyo: true,
             repeat: 1,
             ease: "sine.inOut",
           },
-          `text+=${TEXT_STEP * 3 + 0.7}`,
+          0.7,
         );
       }
 
       // the button settles in with a tiny pop
       if (link) {
-        master.fromTo(
+        scrubTl(link).fromTo(
           link,
-          { autoAlpha: 0, y: 18, scale: 0.92, filter: "blur(8px)" },
+          { autoAlpha: 0, y: 14, scale: 0.96 },
           {
             autoAlpha: 1,
             y: 0,
             scale: 1,
-            filter: "blur(0px)",
-            duration: 1,
-            ease: "back.out(1.4)",
-            clearProps: "filter",
+            duration: 1.2,
+            ease: "power2.out",
           },
-          `text+=${TEXT_STEP * 4}`,
         );
       }
 
-      /* ============ 4. LEAVES: drop in from the top edge, fall to the bottom edge ============ */
-      master.addLabel("leaves", TEXT_AT + TEXT_STEP * 4 + 0.2);
+      /* ============ 3. LI / RI: normal time-based slide, plays ONCE at the bottom of the page ============ */
+      // not scrubbed: starts when the user reaches the bottom of the page,
+      // then slides in on its own
+      const sidesTl = gsap.timeline({ paused: true });
+      sides.forEach((el, i) => {
+        const at = i * 0.25; // small gap between the two
+        sidesTl.set(el, { visibility: "visible" }, at); // still off-screen, so nothing pops
+        sidesTl.fromTo(
+          el,
+          { x: offscreen[i] },
+          { x: 0, duration: SIDES_TIME, ease: "power2.out" },
+          at,
+        );
+      });
+
+      ScrollTrigger.create({
+        trigger: root,
+        start: "bottom bottom+=40", // the bottom of the section reaches the bottom of the screen
+        once: true,
+        onEnter: () => sidesTl.play(),
+      });
+
+      /* ============ 4. LEAVES: normal time-based fall, plays ONCE ============ */
+      // not scrubbed: starts when the flower first shows, then falls on its own
+      const leavesTl = gsap.timeline({ paused: true, delay: LEAVES_DELAY });
 
       leaves.forEach((leaf, i) => {
         const vy = H + SPAWN_Y + 60; // from above the top edge to past the bottom edge
         const dx = WIND * rand(0, 90) + rand(-25, 25); // gentle sideways drift
-        const speed = rand(120, 210); // px per second
+        const speed = rand(85, 150); // px per second
         const flyTime = vy / speed;
-        const at = (i / n) * 5 + rand(0, 0.5); // released over ~5s
-        const swayTime = rand(0.8, 1.4);
+        const at = (i / n) * 7 + rand(0, 0.6); // released over ~5s
+        const swayTime = rand(1.0, 1.6);
 
         // appears instantly, but it's still above the top edge (clipped), so no pop
-        master.set(leaf, { autoAlpha: 1 }, `leaves+=${at}`);
+        leavesTl.set(leaf, { autoAlpha: 1 }, at);
 
         // constant speed = leaves spread evenly from top to bottom
-        master.to(
+        leavesTl.to(
           leaf,
           {
             x: dx,
@@ -322,12 +367,13 @@ const FinalSection = () => {
             rotationY: rand(540, 1440),
             duration: flyTime,
             ease: "none",
+            force3D: true,
           },
-          `leaves+=${at}`,
+          at,
         );
 
         // side-to-side sway like a real falling leaf
-        master.to(
+        leavesTl.to(
           leaf,
           {
             xPercent: rand(-150, 150),
@@ -337,39 +383,47 @@ const FinalSection = () => {
             repeat: Math.round(flyTime / swayTime),
             ease: "sine.inOut",
           },
-          `leaves+=${at}`,
+          at,
         );
 
         // gone once it has left through the bottom edge
-        master.set(leaf, { autoAlpha: 0 }, `leaves+=${at + flyTime}`);
-      });
-      /* ============ LI / RI: their own timeline, starts when they scroll into view ============ */
-      const sidesWrap = root.querySelector<HTMLElement>("[data-sides-wrap]")!;
-
-      const sidesTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: sidesWrap,
-          start: "top 95%", // as soon as the top of the swans area enters the screen
-          once: true,
-        },
+        leavesTl.set(leaf, { autoAlpha: 0 }, at + flyTime);
       });
 
-      sides.forEach((el, i) => {
-        const at = i * 0.25; // small gap between the two
-        sidesTl.set(el, { visibility: "visible" }, at); // still off-screen, so nothing pops
-        sidesTl.to(el, { x: 0, duration: SIDES_TIME, ease: "power2.out" }, at);
+      // fire once, the first time the flower comes into view
+      ScrollTrigger.create({
+        trigger: flowers[0],
+        start: "top 80%",
+        once: true,
+        onEnter: () => leavesTl.play(),
       });
     });
 
-    return () => mm.revert();
+    // re-measure once images and fonts have loaded: if the layout shifts after the
+    // triggers were created, their start/end points would be wrong
+    const refresh = () => ScrollTrigger.refresh();
+    window.addEventListener("load", refresh);
+    document.fonts?.ready.then(refresh);
+
+    return () => {
+      window.removeEventListener("load", refresh);
+      mm.revert();
+    };
   }, []);
 
   return (
     <div
       ref={rootRef}
-      className="bg-[url('/envelope/bg3.png')] -mt-37 z-2 relative overflow-x-clip bg-no-repeat bg-center flex flex-col justify-center items-center w-full min-h-dvh pt-[16vw] pb-[48vw]"
-      style={{ backgroundSize: "100% 100%" }}
+      className="-mt-37 z-2 relative overflow-x-clip flex flex-col justify-center items-center w-full min-h-dvh pt-[16vw] pb-[48vw]"
     >
+      <Image
+        src="/envelope/bg3.png"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="absolute inset-0 z-0 object-fill object-center"
+      />
       {/* leaves layer: clipped to this section */}
       <div
         aria-hidden="true"
@@ -379,21 +433,47 @@ const FinalSection = () => {
           <div
             key={i}
             data-leaf
-            className="bg-[url('/envelope/leaf1.png')] invisible absolute w-1/5 h-8 bg-center bg-contain bg-no-repeat"
+            className="invisible absolute w-1/5 h-8 will-change-transform"
             style={{ top: -SPAWN_Y }}
-          />
+          >
+            <Image
+              src="/envelope/leaf1.png"
+              alt=""
+              fill
+              sizes="20vw"
+              loading="eager"
+              decoding="async"
+              className="object-contain object-center"
+            />
+          </div>
         ))}
       </div>
 
       <div
         data-extra
-        className="invisible bg-[url('/envelope/Asset_2_1.png')] absolute w-1/4 h-20 -inset-e-8 top-5 bg-center bg-contain bg-no-repeat"
-      ></div>
+        className="invisible absolute w-1/4 h-20 -inset-e-8 top-5"
+      >
+        <Image
+          src="/envelope/Asset_2_1.png"
+          alt=""
+          fill
+          sizes="25vw"
+          className="object-contain object-center"
+        />
+      </div>
 
       <div
         aria-hidden="true"
-        className="pointer-events-none mix-blend-soft-light bg-[url('/envelope/mms.png')] absolute z-0 w-1/2 h-[80%] left-0 -top-5 bg-center bg-contain bg-no-repeat"
-      ></div>
+        className="pointer-events-none mix-blend-soft-light absolute z-0 w-1/2 h-[80%] left-0 -top-5"
+      >
+        <Image
+          src="/envelope/mms.png"
+          alt=""
+          fill
+          sizes="50vw"
+          className="object-contain object-center"
+        />
+      </div>
 
       {/* side flower: width follows the screen, spans the full height of the section */}
       <ShineFlower
@@ -421,8 +501,16 @@ const FinalSection = () => {
 
         <div
           data-intro="sep1"
-          className="invisible bg-[url('/envelope/flowerSeperator.png')] w-full h-[18vw] max-h-24 scale-y-[-1] bg-center bg-contain bg-no-repeat"
-        />
+          className="invisible relative w-full h-[18vw] max-h-24 scale-y-[-1]"
+        >
+          <Image
+            src="/envelope/flowerSeperator.png"
+            alt=""
+            fill
+            sizes="100vw"
+            className="object-contain object-center"
+          />
+        </div>
 
         <div className="flex flex-col gap-3 items-center font-bold text-red-950 justify-center text-center text-[clamp(13px,4vw,18px)]">
           <p data-intro="paragraph" className="invisible">
@@ -456,12 +544,28 @@ const FinalSection = () => {
       >
         <div
           data-side="r"
-          className="bg-[url('/envelope/ri.png')] w-[62vw] h-[62vw] max-w-[260px] max-h-[260px] bg-center absolute bottom-0 bg-contain bg-no-repeat invisible"
-        />
+          className="w-[62vw] h-[62vw] max-w-[260px] max-h-[260px] absolute bottom-0 invisible"
+        >
+          <Image
+            src="/envelope/ri.png"
+            alt=""
+            fill
+            sizes="62vw"
+            className="object-contain object-center"
+          />
+        </div>
         <div
           data-side="l"
-          className="bg-[url('/envelope/li.png')] w-[62vw] h-[62vw] max-w-[260px] max-h-[260px] bg-center absolute bottom-0 bg-contain bg-no-repeat invisible"
-        />
+          className="w-[62vw] h-[62vw] max-w-[260px] max-h-[260px] absolute bottom-0 invisible"
+        >
+          <Image
+            src="/envelope/li.png"
+            alt=""
+            fill
+            sizes="62vw"
+            className="object-contain object-center"
+          />
+        </div>
       </div>
     </div>
   );

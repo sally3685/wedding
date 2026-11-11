@@ -4,11 +4,18 @@ import React, { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Link from "next/link";
-import { MapPin } from "lucide-react";
 
 /* ---------------- glitter ---------------- */
-const STAR_COUNT = 26;
-const GLOW = "212, 175, 55";
+const STAR_COUNT = 16; // was 26 - fewer layers = smoother scroll
+
+/* ---------------- scroll ----------------
+   Every block reveals by its OWN position on screen, scrubbed by the scroll.
+   Block top at 98% of the screen (just entering) -> block top at 50% (middle).
+   Bigger gap = slower, clearer reveal.
+   clamp() keeps the end point reachable even when the page can't scroll any
+   further (needs GSAP 3.12+). */
+const REVEAL_START = "clamp(top 60%)";
+const REVEAL_END = "clamp(top 50%)";
 
 const STAR_PATH =
   "M12 0C12.8 7.5 16.5 11.2 24 12C16.5 12.8 12.8 16.5 12 24C11.2 16.5 7.5 12.8 0 12C7.5 11.2 11.2 7.5 12 0Z";
@@ -29,6 +36,7 @@ const FivthSection = () => {
 
     const mm = gsap.matchMedia();
 
+    // reduced motion: just show everything, no animation, no glitter
     mm.add("(prefers-reduced-motion: reduce)", () => {
       gsap.set(q("[data-intro]"), { autoAlpha: 1 });
     });
@@ -39,38 +47,41 @@ const FivthSection = () => {
       const text = one("text");
       const sep = one("sep1");
 
-      const from = { autoAlpha: 0, y: 18, filter: "blur(8px)" };
-      const to = {
-        autoAlpha: 1,
-        y: 0,
-        filter: "blur(0px)",
-        duration: 1.1,
-        ease: "power3.out",
-        clearProps: "filter",
-      };
+      /* ============ REVEAL: each block scrubbed by its own position ============ */
+      // no blur filter (slow while scrolling), no clearProps (must run backwards)
+      const scrubTl = (trigger: Element) =>
+        gsap.timeline({
+          scrollTrigger: {
+            trigger,
+            start: REVEAL_START,
+            end: REVEAL_END,
+            scrub: 0.6, // smooths the scroll -> animation link
+            invalidateOnRefresh: true,
+          },
+        });
 
-      const tl = gsap.timeline({
-        scrollTrigger: { trigger: root, start: "top 60%", once: true },
+      const from = { autoAlpha: 0, y: 18 };
+      const to = { autoAlpha: 1, y: 0, duration: 1, ease: "power3.out" };
+
+      [title, date, text].forEach((el) => {
+        if (el) scrubTl(el).fromTo(el, from, to);
       });
 
-      if (title) tl.fromTo(title, from, to, 0);
+      // separator unfurls from the centre
       if (sep) {
-        tl.fromTo(
+        scrubTl(sep).fromTo(
           sep,
           { autoAlpha: 0, clipPath: "inset(0% 50% 0% 50%)" },
           {
             autoAlpha: 1,
             clipPath: "inset(0% 0% 0% 0%)",
-            duration: 1.3,
+            duration: 1,
             ease: "power2.inOut",
-            clearProps: "clipPath",
           },
-          "0", // starts 0.15s before title ends → overlaps slightly for smoothness
         );
       }
-      if (date) tl.fromTo(date, from, to, 0.35);
-      if (text) tl.fromTo(text, from, to, 0.7);
-      /* ============ GLITTER ============ */
+
+      /* ============ GLITTER: twinkles while this section is on screen ============ */
       const stars = gsap.utils.toArray<HTMLElement>("[data-star]", layer);
 
       const place = (star: HTMLElement) => {
@@ -80,9 +91,11 @@ const FivthSection = () => {
           top: `${rand(2, 96)}%`,
           width: s,
           height: s,
+          force3D: true,
         });
       };
 
+      // built paused: the ScrollTrigger below starts / pauses them
       const twinkles = stars.map((star) => {
         place(star);
         return gsap
@@ -115,13 +128,22 @@ const FivthSection = () => {
 
       ScrollTrigger.create({
         trigger: root,
-        start: "top 70%",
+        start: "top 90%",
         end: "bottom top",
         onToggle: (self) => twinkles.forEach((t) => t.paused(!self.isActive)),
       });
     });
 
-    return () => mm.revert();
+    // re-measure once images and fonts have loaded: if the layout shifts after the
+    // triggers were created, their start/end points would be wrong
+    const refresh = () => ScrollTrigger.refresh();
+    window.addEventListener("load", refresh);
+    document.fonts?.ready.then(refresh);
+
+    return () => {
+      window.removeEventListener("load", refresh);
+      mm.revert();
+    };
   }, []);
 
   return (
@@ -172,9 +194,11 @@ const FivthSection = () => {
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
       >
+        {/* own id: ThirdSection already uses "starGoldThird", and two elements
+            with the same id on one page can clash */}
         <svg width="0" height="0" className="absolute">
           <defs>
-            <radialGradient id="starGoldThird">
+            <radialGradient id="starGoldFifth">
               <stop offset="0%" stopColor="#fffbe6" />
               <stop offset="45%" stopColor="#f5d36b" />
               <stop offset="100%" stopColor="#c8952b" />
@@ -182,12 +206,13 @@ const FivthSection = () => {
           </defs>
         </svg>
 
+        {/* no drop-shadow filter on the stars: a filter on every star repaints
+            every frame and causes scroll lag. The gold gradient already glows. */}
         {Array.from({ length: STAR_COUNT }, (_, i) => (
           <span
             key={i}
             data-star
-            className="absolute opacity-0"
-            style={{ filter: "drop-shadow(0 0 3px rgba(212,160,40,0.9))" }}
+            className="absolute opacity-0 will-change-transform"
           >
             {i % 4 === 0 ? (
               <span
@@ -199,7 +224,7 @@ const FivthSection = () => {
               />
             ) : (
               <svg viewBox="0 0 24 24" className="block size-full">
-                <path d={STAR_PATH} fill="url(#starGoldThird)" />
+                <path d={STAR_PATH} fill="url(#starGoldFifth)" />
               </svg>
             )}
           </span>

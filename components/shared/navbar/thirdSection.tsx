@@ -12,8 +12,18 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 const TARGET_DATE = new Date(2026, 11, 12, 18, 0, 0); // month is 0-indexed
 
 /* ---------------- glitter ---------------- */
-const STAR_COUNT = 26; // more = more glitter
+const STAR_COUNT = 16; // was 26 - fewer layers = smoother scroll
 const GLOW = "212, 175, 55"; // gold used for the text glow
+
+/* ---------------- scroll ---------------- */
+// Every block reveals by its OWN position on screen (not the whole section's),
+// so it still works if the section is short, tall, or the layout shifts.
+// Block top at 98% of the screen (just entering) -> block top at 50% (screen middle).
+// That is about half a screen of scrolling per block. Make the gap bigger = slower, clearer.
+// clamp() keeps the end point reachable even when the page can't scroll any further
+// (needs GSAP 3.12+).
+const REVEAL_START = "clamp(top 90%)";
+const REVEAL_END = "clamp(top 30%)";
 
 // 4-point sparkle shape
 const STAR_PATH =
@@ -88,27 +98,20 @@ const ThirdSection = () => {
 
   const rootRef = useRef<HTMLDivElement>(null);
   const sparkleRef = useRef<HTMLDivElement>(null);
-  const intervalRef = useRef<number | null>(null);
 
-  // countdown tick
+  // countdown tick: set immediately, then every second
   useEffect(() => {
     const f = () => {
       setTimeLeft(computeTimeLeft());
-
-      intervalRef.current = window.setInterval(() => {
+      const id = window.setInterval(() => {
         setTimeLeft(computeTimeLeft());
       }, 1000);
+      return () => window.clearInterval(id);
     };
-    // Set immediately, then tick every second
     f();
-    return () => {
-      if (intervalRef.current !== null) {
-        window.clearInterval(intervalRef.current);
-      }
-    };
   }, []);
 
-  // reveal + glitter, both started by scrolling to this section
+  // reveal (scrubbed by scroll) + glitter (runs while the section is on screen)
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
 
@@ -134,61 +137,64 @@ const ThirdSection = () => {
       const boxes = gsap.utils.toArray<HTMLElement>("[data-box]", root);
       const nums = gsap.utils.toArray<HTMLElement>("[data-num]", root);
 
-      /* ============ REVEAL: starts when the section comes into view ============ */
-      const from = { autoAlpha: 0, y: 18, filter: "blur(8px)" };
-      const to = {
-        autoAlpha: 1,
-        y: 0,
-        filter: "blur(0px)",
-        duration: 1.1,
-        ease: "power3.out",
-        clearProps: "filter",
-      };
+      /* ============ REVEAL: each block scrubbed by its own position ============ */
+      // no blur filter (slow while scrolling), no clearProps (must run backwards)
+      const scrubTl = (trigger: Element) =>
+        gsap.timeline({
+          scrollTrigger: {
+            trigger,
+            start: REVEAL_START,
+            end: REVEAL_END,
+            scrub: 1.25,
+            invalidateOnRefresh: true,
+          },
+        });
 
-      const tl = gsap.timeline({
-        scrollTrigger: { trigger: root, start: "top 60%", once: true },
+      // the three texts: each fades in and rises as it reaches the screen
+      [title, date, text].forEach((el) => {
+        if (!el) return;
+        scrubTl(el).fromTo(
+          el,
+          { autoAlpha: 0, y: 14 },
+          { autoAlpha: 1, y: 0, duration: 1.2, ease: "power2.out" },
+        );
       });
 
-      // texts blur into focus one after another
-      if (title) tl.fromTo(title, from, to, 0);
-      if (date) tl.fromTo(date, from, to, 0.35);
-      if (text) tl.fromTo(text, from, to, 0.7);
-
-      // the four boxes pop in one by one
-      tl.fromTo(
-        boxes,
-        { autoAlpha: 0, y: 24, scale: 0.85, filter: "blur(6px)" },
-        {
-          autoAlpha: 1,
-          y: 0,
-          scale: 1,
-          filter: "blur(0px)",
-          duration: 0.9,
-          ease: "back.out(1.5)",
-          stagger: 0.15,
-          clearProps: "filter",
-        },
-        1.1,
-      );
-
-      // gold glow passes over the numbers
-      tl.fromTo(
-        nums,
-        { textShadow: `0 0 0px rgba(${GLOW},0)` },
-        {
-          textShadow: `0 0 16px rgba(${GLOW},0.9)`,
-          duration: 0.8,
-          yoyo: true,
-          repeat: 1,
-          ease: "sine.inOut",
-          stagger: 0.15,
-        },
-        2,
-      );
+      // the four boxes pop in one by one, then the gold glow passes over the numbers
+      const countdown = one("countdown");
+      if (countdown) {
+        const boxTl = scrubTl(countdown);
+        boxTl.fromTo(
+          boxes,
+          { autoAlpha: 0, y: 18, scale: 0.94 },
+          {
+            autoAlpha: 1,
+            y: 0,
+            scale: 1,
+            duration: 1.2,
+            ease: "power2.out",
+            stagger: 0.22,
+          },
+          0,
+        );
+        boxTl.fromTo(
+          nums,
+          { textShadow: `0 0 0px rgba(${GLOW},0)` },
+          {
+            textShadow: `0 0 16px rgba(${GLOW},0.9)`,
+            duration: 1.1,
+            yoyo: true,
+            repeat: 1,
+            ease: "sine.inOut",
+            stagger: 0.22,
+          },
+          0.9,
+        );
+      }
 
       // separator unfurls from the centre
       if (sep) {
-        tl.fromTo(
+        scrubTl(sep).fromTo(
           sep,
           { autoAlpha: 0, clipPath: "inset(0% 50% 0% 50%)" },
           {
@@ -196,9 +202,7 @@ const ThirdSection = () => {
             clipPath: "inset(0% 0% 0% 0%)",
             duration: 1.3,
             ease: "power2.inOut",
-            clearProps: "clipPath",
           },
-          2,
         );
       }
 
@@ -212,6 +216,7 @@ const ThirdSection = () => {
           top: `${rand(2, 96)}%`,
           width: s,
           height: s,
+          force3D: true,
         });
       };
 
@@ -232,7 +237,7 @@ const ThirdSection = () => {
               opacity: rand(0.7, 1),
               scale: rand(0.8, 1.2),
               rotation: "+=50",
-              duration: rand(0.6, 1),
+              duration: rand(0.9, 1.4),
               ease: "power2.out",
             },
           )
@@ -240,21 +245,30 @@ const ThirdSection = () => {
             opacity: 0,
             scale: 0,
             rotation: "+=50",
-            duration: rand(0.8, 1.4),
+            duration: rand(1.1, 1.8),
             ease: "power2.in",
           })
-          .to({}, { duration: rand(0.2, 2.2) }); // rest before the next twinkle
+          .to({}, { duration: rand(0.6, 2.8) }); // rest before the next twinkle
       });
 
       ScrollTrigger.create({
         trigger: root,
-        start: "top 70%",
+        start: "top 90%",
         end: "bottom top",
         onToggle: (self) => twinkles.forEach((t) => t.paused(!self.isActive)),
       });
     });
 
-    return () => mm.revert();
+    // re-measure once images and fonts have loaded: if the layout shifts after the
+    // triggers were created, their start/end points would be wrong
+    const refresh = () => ScrollTrigger.refresh();
+    window.addEventListener("load", refresh);
+    document.fonts?.ready.then(refresh);
+
+    return () => {
+      window.removeEventListener("load", refresh);
+      mm.revert();
+    };
   }, []);
 
   return (
@@ -264,7 +278,7 @@ const ThirdSection = () => {
     >
       <div className="bg-[#F7EFE2] opacity-60 absolute w-full h-full "></div>
 
-      <div className="flex flex-col justify-center items-center -mt-10 relative">
+      <div className="flex flex-col justify-center gap-8 items-center -mt-10 relative">
         <div
           data-intro="title"
           className="invisible z-2 mb-10 font-bold text-lg text-red-950 "
@@ -323,12 +337,13 @@ const ThirdSection = () => {
           </defs>
         </svg>
 
+        {/* no drop-shadow filter on the stars: 26 filtered layers repainting every
+            frame was a big source of scroll lag. The gold gradient already glows. */}
         {Array.from({ length: STAR_COUNT }, (_, i) => (
           <span
             key={i}
             data-star
-            className="absolute opacity-0"
-            style={{ filter: "drop-shadow(0 0 3px rgba(212,160,40,0.9))" }}
+            className="absolute opacity-0 will-change-transform"
           >
             {i % 4 === 0 ? (
               <span

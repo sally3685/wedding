@@ -289,8 +289,7 @@ const SecondSection = () => {
 
       /* ============ 3. LEAVES: normal time-based flight, plays ONCE ============ */
       // not scrubbed: starts when flower1 first shows, then flies on its own
-      const leavesTl = gsap.timeline({ paused: true, delay: LEAVES_DELAY });
-
+      const leavesTl = gsap.timeline({ paused: true });
       // one landing spot per leaf along the BOTTOM edge, from the left corner to the
       // right corner, shuffled so neighbouring leaves don't land next to each other.
       const exits = gsap.utils.shuffle(
@@ -351,8 +350,8 @@ const SecondSection = () => {
 
       // fire once, the first time flower1 comes into view
       ScrollTrigger.create({
-        trigger: flowers[0],
-        start: "top 80%",
+        trigger: lines[0],
+        start: "top 85%", // same start as the text timeline, so they begin together
         once: true,
         onEnter: () => leavesTl.play(),
       });

@@ -131,12 +131,16 @@ const FivthSection = () => {
     >
       <div className="bg-[#F7EFE2] opacity-60 absolute w-full h-full" />
 
-      <div className="flex flex-col justify-center w-full items-center top-15 relative">
+      <div className="flex flex-col justify-center items-center -mt-10 relative">
         <div
           data-intro="title"
-          className="invisible z-2 mb-2 font-bold text-lg text-red-950"
+          className="invisible z-2 mb-2 flex flex-col justify-center items-center px-4 font-extrabold  text-red-950"
         >
-          <p>موقع العرس</p>
+          <p className="mb-2 text-xl">أين نلتقي؟</p>
+          <p className="text-sm font-sans text-center">
+            يسعدنا أن نلتقي بكم في المكان الذي سيشهد فرحتنا ويجمع أحبابنا تحت
+            سقف واحد، لنحتفل معًا بهذه المناسبة الغالية.
+          </p>
         </div>
         <div
           data-intro="sep1"
@@ -145,18 +149,21 @@ const FivthSection = () => {
 
         <div
           data-intro="date"
-          className="invisible z-2 mb-8 space-y-2 font-bold text-lg text-red-950"
+          className="invisible z-2 mb-8 space-y-3 font-extrabold text-center text-lg  text-red-950"
         >
-          <p>صالة ميديا</p>
-          <p className="text-sm">حي الأشرفية</p>
+          <p className="text-lg">صالة ميديا</p>
+          <p className="text-lg">حي الأشرفية</p>
         </div>
 
         <div
           data-intro="text"
-          className="invisible z-2 mb-5 flex justify-center items-center gap-2 flex-col font-bold text-lg text-red-950"
+          className="invisible z-2 mb-5 flex justify-center items-center gap-2 flex-col font-bold   text-red-950"
         >
-          <MapPin className="size-20" />
-          <Link href="/">فتح في الخريطة</Link>
+          <div className="bg-[url('/envelope/mapPin.png')] size-30 bg-center bg-contain bg-no-repeat" />
+
+          <Link href="/" className=" w-full text-center">
+            فتح في الخريطة
+          </Link>
         </div>
       </div>
 

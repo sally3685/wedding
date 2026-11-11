@@ -1,4 +1,5 @@
 "use client";
+import EnvelopeLoader from "@/components/shared/navbar/EnvelopeLoader";
 import FinalSection from "@/components/shared/navbar/FinalSection";
 import FirstSection from "@/components/shared/navbar/firstSection";
 import FivthSection from "@/components/shared/navbar/fivthSection";
@@ -10,7 +11,7 @@ import { useState } from "react";
 
 const EnvelopeOpening = dynamic(
   () => import("@/components/shared/navbar/EnvelopeReveal"),
-  { ssr: false },
+  { ssr: false, loading: () => <EnvelopeLoader /> },
 );
 
 export default function Page() {
@@ -23,7 +24,6 @@ export default function Page() {
       <ThirdSection />
       <FourthSection />
       <FivthSection />
-
       <FinalSection />
     </>
   );

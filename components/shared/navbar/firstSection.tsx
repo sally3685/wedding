@@ -21,7 +21,7 @@ interface FirstSectionProps {
 const FirstSection = ({ active }: FirstSectionProps) => {
   const [mode, setMode] = useState<Mode>("pending");
   const [revealed, setRevealed] = useState(false);
-
+  console.log(revealed);
   const rootRef = useRef<HTMLDivElement>(null);
   const sparkleRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -66,9 +66,8 @@ const FirstSection = ({ active }: FirstSectionProps) => {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const grad = ctx.createLinearGradient(0, 0, width, height);
-    grad.addColorStop(0, "#d9b25f");
-    grad.addColorStop(0.5, "#b88a3a");
-    grad.addColorStop(1, "#d9b25f");
+    grad.addColorStop(0, "#fdf6e3");
+    grad.addColorStop(1, "#f0e2c2");
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
     for (let i = 0; i < 700; i++) {
@@ -444,9 +443,11 @@ const FirstSection = ({ active }: FirstSectionProps) => {
 
       <div
         data-intro="title"
-        className="invisible z-2 mb-15 font-bold text-lg text-red-950"
+        className="invisible z-2 m-5 font-bold text-lg text-red-950"
       >
-        <p>مرحبًا بكم في إعلان زفافنا </p>
+        <p className="text-center  leading-9">
+          بكل الحب، ندعوكم لتكونوا جزءًا من حكايتنا
+        </p>
       </div>
 
       <div
@@ -460,7 +461,7 @@ const FirstSection = ({ active }: FirstSectionProps) => {
           <div
             ref={hintRef}
             data-intro="hint"
-            className="invisible z-2 font-bold text-sm text-red-950"
+            className="invisible z-2 font-bold font-sans text-sm text-red-950"
           >
             <p>امسح للكشف عن موعدنا</p>
           </div>
@@ -483,7 +484,7 @@ const FirstSection = ({ active }: FirstSectionProps) => {
               <div
                 key={d}
                 data-date
-                className={`flex justify-center items-center size-10 relative text-red-950 z-2 ${
+                className={`flex justify-center items-center text-xl size-10 relative text-red-950 z-2 ${
                   isDesktop ? "invisible" : ""
                 }`}
               >
@@ -508,7 +509,7 @@ const FirstSection = ({ active }: FirstSectionProps) => {
             type="button"
             data-intro="fallback"
             onClick={showDate}
-            className="invisible z-2 text-xs underline text-red-950/70"
+            className="invisible z-2 font-sans text-xs underline font-bold text-center text-red-950/70"
           >
             إظهار الموعد
           </button>
@@ -526,7 +527,10 @@ const FirstSection = ({ active }: FirstSectionProps) => {
         aria-hidden="true"
         className="z-2 flex flex-col items-center -space-y-3 text-red-950 invisible opacity-0"
       >
-        <p className="text-xs mb-1">مرر للأسفل</p>
+        <p className="text-xs font-bold mb-1 text-center leading-6">
+          رحلتنا الجميلة تبدأ من هنا
+          <br /> مرّروا للأسفل لاكتشاف تفاصيل يومنا المميز.
+        </p>
         {[0, 1].map((i) => (
           <svg
             key={i}

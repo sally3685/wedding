@@ -227,12 +227,6 @@ const FinalSection = () => {
         { autoAlpha: 1, scale: 1, duration: 1, ease: "back.out(1.4)" },
         GLINT_TIME * 0.6,
       );
-      /* ============ 2. LI / RI: slide in from their sides, no fade ============ */
-      sides.forEach((el, i) => {
-        const at = SIDES_AT + i * 0.25; // a bit more gap between ri and li
-        master.set(el, { visibility: "visible" }, at); // still off-screen, so nothing pops
-        master.to(el, { x: 0, duration: SIDES_TIME, ease: "power2.out" }, at);
-      });
 
       /* ============ 3. TEXT: overlapping blur-fade, like the other sections ============ */
       const from = { autoAlpha: 0, y: 18, filter: "blur(8px)" };
@@ -349,6 +343,22 @@ const FinalSection = () => {
         // gone once it has left through the bottom edge
         master.set(leaf, { autoAlpha: 0 }, `leaves+=${at + flyTime}`);
       });
+      /* ============ LI / RI: their own timeline, starts when they scroll into view ============ */
+      const sidesWrap = root.querySelector<HTMLElement>("[data-sides-wrap]")!;
+
+      const sidesTl = gsap.timeline({
+        scrollTrigger: {
+          trigger: sidesWrap,
+          start: "top 95%", // as soon as the top of the swans area enters the screen
+          once: true,
+        },
+      });
+
+      sides.forEach((el, i) => {
+        const at = i * 0.25; // small gap between the two
+        sidesTl.set(el, { visibility: "visible" }, at); // still off-screen, so nothing pops
+        sidesTl.to(el, { x: 0, duration: SIDES_TIME, ease: "power2.out" }, at);
+      });
     });
 
     return () => mm.revert();
@@ -357,11 +367,10 @@ const FinalSection = () => {
   return (
     <div
       ref={rootRef}
-      className="bg-[url('/envelope/bg3.png')] -mt-37 z-2 relative overflow-x-clip bg-cover bg-no-repeat bg-center flex flex-col justify-center items-center w-full h-screen"
+      className="bg-[url('/envelope/bg3.png')] -mt-37 z-2 relative overflow-x-clip bg-no-repeat bg-center flex flex-col justify-center items-center w-full min-h-dvh pt-[16vw] pb-[48vw]"
       style={{ backgroundSize: "100% 100%" }}
     >
-      {/* leaves layer: clipped to this section, so leaves enter through the top edge
-          and leave through the bottom edge, never over the neighbouring sections */}
+      {/* leaves layer: clipped to this section */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
@@ -375,73 +384,83 @@ const FinalSection = () => {
           />
         ))}
       </div>
-      {/* first: animated */}
+
       <div
         data-extra
         className="invisible bg-[url('/envelope/Asset_2_1.png')] absolute w-1/4 h-20 -inset-e-8 top-5 bg-center bg-contain bg-no-repeat"
       ></div>
 
-      {/* second: static, multiply blend (no animation) */}
       <div
         aria-hidden="true"
         className="pointer-events-none mix-blend-soft-light bg-[url('/envelope/mms.png')] absolute z-0 w-1/2 h-[80%] left-0 -top-5 bg-center bg-contain bg-no-repeat"
       ></div>
-      {/* side flower */}
+
+      {/* side flower: width follows the screen, spans the full height of the section */}
       <ShineFlower
         src="/envelope/sideFlower.png"
         origin={{ x: 50, y: 50 }}
         fit="cover"
-        className="absolute w-25 right-0 h-[80%] -top-6"
+        className="absolute w-[26vw] right-0 h-[85%] top-0"
       />
 
-      <div className="flex flex-col justify-center w-full items-center relative -inset-e-4 -top-15 gap-4">
+      {/* content: in the normal flow, so the section grows with the text.
+        right padding keeps the text clear of the side flower */}
+      <div className="flex flex-col justify-center w-full items-center relative gap-[4vw] pl-[5vw] pr-[18vw]">
         <div
           data-intro="title"
-          className="invisible z-2 mb-1 font-bold text-lg text-red-950"
+          className="invisible z-2 text-center font-bold text-[clamp(16px,4.8vw,22px)] text-red-950"
         >
-          <p>من فضلك أكّد حضورك</p>
+          <p className="mb-[5vw]">وجودكم يسعدنا</p>
+          <p className="font-sans text-[clamp(12px,3.5vw,16px)] leading-[1.9]">
+            لأن حضوركم يعني لنا الكثير، نتمنى أن تشاركونا هذه المناسبة المميزة،
+            وأن تكونوا جزءًا من أجمل ذكرياتنا. نرجو منكم تأكيد حضوركم قبل موعد
+            الحفل، حتى نتمكن من استقبالكم بكل محبة وترتيب هذه الليلة بما يليق
+            بكم.
+          </p>
         </div>
 
         <div
           data-intro="sep1"
-          className="invisible bg-[url('/envelope/flowerSeperator.png')] w-full h-20 -inset-s-10 scale-y-[-1] bg-center bg-contain bg-no-repeat mb-8"
+          className="invisible bg-[url('/envelope/flowerSeperator.png')] w-full h-[18vw] max-h-24 scale-y-[-1] bg-center bg-contain bg-no-repeat"
         />
 
-        <div className="flex flex-col gap-3 items-center text-red-950 justify-center">
+        <div className="flex flex-col gap-3 items-center font-bold text-red-950 justify-center text-center text-[clamp(13px,4vw,18px)]">
           <p data-intro="paragraph" className="invisible">
             نأمل تأكيد حضوركم قبل تاريخ
           </p>
 
           <div
             data-intro="date"
-            className="invisible z-2 mb-8 font-bold text-lg text-red-950"
+            className="invisible z-2 mb-[4vw] font-bold text-[clamp(15px,4.6vw,20px)] text-red-950"
           >
             <p>يوم الأحد :12/12/2026</p>
           </div>
         </div>
+
         <Link
           href={"/"}
           data-intro="link"
-          className="invisible px-8 py-2.5 rounded-xl font-bold text-red-950
-  
-          bg-gradient-to-b from-[#fdf6e3] to-[#f0e2c2]
-          border-2 border-[#c8a25a]/60
-          shadow-[0_6px_18px_rgba(120,90,30,0.25),inset_0_1px_0_rgba(255,255,255,0.8)]
-    transition-[filter] duration-200 hover:brightness-105 active:brightness-95"
+          className="invisible px-8 py-2.5 rounded-xl font-bold text-red-950 text-[clamp(13px,3.8vw,16px)]
+        bg-gradient-to-b from-[#fdf6e3] to-[#f0e2c2]
+        border-2 border-[#c8a25a]/60
+        transition-[filter] duration-200 hover:brightness-105 active:brightness-95 font-sans"
         >
           أرسل عبر واتساب
         </Link>
       </div>
 
-      {/* bottom corner images: li = left corner, ri = right corner */}
-      <div className="flex absolute bottom-0 justify-center items-center">
+      {/* bottom corner images: sized from screen width */}
+      <div
+        data-sides-wrap
+        className="flex absolute bottom-0 inset-x-0 h-[62vw] max-h-[260px] justify-center items-center pointer-events-none"
+      >
         <div
           data-side="r"
-          className="bg-[url('/envelope/ri.png')] w-60 h-60 bg-center absolute bottom-0 bg-contain bg-no-repeat invisible"
+          className="bg-[url('/envelope/ri.png')] w-[62vw] h-[62vw] max-w-[260px] max-h-[260px] bg-center absolute bottom-0 bg-contain bg-no-repeat invisible"
         />
         <div
           data-side="l"
-          className="bg-[url('/envelope/li.png')] w-60 h-60 bg-center absolute bottom-0 bg-contain bg-no-repeat invisible"
+          className="bg-[url('/envelope/li.png')] w-[62vw] h-[62vw] max-w-[260px] max-h-[260px] bg-center absolute bottom-0 bg-contain bg-no-repeat invisible"
         />
       </div>
     </div>

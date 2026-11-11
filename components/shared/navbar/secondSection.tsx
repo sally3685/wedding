@@ -332,7 +332,7 @@ const SecondSection = () => {
   return (
     <div
       ref={rootRef}
-      className="bg-[url('/envelope/secondbg.png')] z-2 relative overflow-x-clip bg-cover bg-no-repeat bg-center flex flex-col justify-center items-center -top-10 w-full h-[calc(100vh+2vh)]"
+      className="bg-[url('/envelope/secondbg.png')] z-2 relative overflow-x-clip bg-no-repeat bg-center flex flex-col justify-start items-center -top-10 w-full min-h-dvh pt-10 pb-[34vw]"
       style={{ backgroundSize: "100% 100%" }}
     >
       <div
@@ -340,17 +340,19 @@ const SecondSection = () => {
         className="invisible bg-[url('/envelope/Asset_2_1.png')] absolute w-1/4 h-20 -inset-e-8 top-5 bg-center bg-contain bg-no-repeat"
       ></div>
 
+      {/* frame: in the normal flow, so it grows with the text.
+        pt = room for flower1, pb = room for flower2 (both scale with screen width) */}
       <div
-        className="bg-[url('/envelope/border.png')] absolute w-[95%] h-[90%] top-10 bg-center bg-no-repeat"
+        className="bg-[url('/envelope/border.png')] relative w-[95%] min-h-[calc(100dvh-5rem)] pt-[48vw] pb-[50vw] bg-center bg-no-repeat"
         style={{ backgroundSize: "100% 100%" }}
       >
-        <div className="flex flex-col items-center z-2 justify-center top-40 relative text-red-950 font-bold text-xs leading-7 text-center p-2">
-          <div>
+        <div className="flex flex-col items-center z-2 w-full justify-center relative text-red-950 font-bold text-[clamp(11px,3.4vw,16px)] leading-[1.9] text-center px-[6vw]">
+          <div className="w-full">
             <p data-reveal className="invisible">
-              بكل الحب نعلن
+              بكل الحب
             </p>
             <p data-reveal className="invisible">
-              وبكل الحب ندعوكم لمشاركتنا بداية جديدة
+              ندعوكم لمشاركتنا بداية جديدة
             </p>
             <p data-reveal className="invisible">
               في أجمل أيام العمر نحتفل معًا بحضوركم
@@ -360,45 +362,51 @@ const SecondSection = () => {
             </p>
           </div>
 
-          <div className="mt-10 flex justify-between font-extrabold items-center w-full px-10">
-            <p data-reveal className="invisible text-sm leading-7">
+          <div className="mt-[5vw] flex justify-between font-extrabold items-center w-full px-[4vw]">
+            <p
+              data-reveal
+              className="invisible text-[clamp(13px,4vw,18px)] leading-[1.9]"
+            >
               حرم السيد
               <br />
               محمد
             </p>
-            <p data-reveal className="invisible text-sm leading-7">
+            <p
+              data-reveal
+              className="invisible text-[clamp(13px,4vw,18px)] leading-[1.9]"
+            >
               حرم السيد
               <br />
               علي
             </p>
           </div>
 
-          <div className="mt-10">
+          <div className="mt-[8vw]">
             <p data-reveal className="invisible">
               نتشرف بدعوتكم لحضور حفل زفاف نجليهما
             </p>
           </div>
 
-          <div className="mt-10 flex justify-between items-center w-full px-10">
+          <div className="mt-[8vw] flex justify-between items-center w-full px-[4vw]">
             <p
               data-reveal
               data-glow
-              className="invisible text-2xl font-extrabold leading-7"
+              className="invisible text-[clamp(1.5rem,8vw,2.5rem)] font-extrabold leading-[1.6]"
             >
               محمد
             </p>
             <p
               data-reveal
               data-glow
-              className="invisible text-2xl font-extrabold leading-7"
+              className="invisible text-[clamp(1.5rem,8vw,2.5rem)] font-extrabold leading-[1.6]"
             >
               سعاد
             </p>
           </div>
         </div>
 
-        {/* flower1 box: leaves hide behind the flower, flower is on top */}
-        <div className="absolute w-3/4 h-90 -inset-s-10 -top-30">
+        {/* flower1: top corner. Size and offsets are tied to screen width */}
+        <div className="absolute w-3/4 aspect-[3/4] -inset-s-[10vw] -top-[31vw]">
           {Array.from({ length: LEAF_COUNT }, (_, i) => (
             <div
               key={i}
@@ -420,10 +428,11 @@ const SecondSection = () => {
           </ShineFlower>
         </div>
 
+        {/* flower2: bottom corner */}
         <ShineFlower
           src="/envelope/flower2.png"
           origin={{ x: 50, y: 50 }}
-          className="absolute w-[60%] h-90 -inset-e-5 -bottom-30"
+          className="absolute w-[60%] aspect-[5/8] -inset-e-[5vw] -bottom-[31vw]"
         >
           <div
             data-extra

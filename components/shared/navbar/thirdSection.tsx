@@ -62,7 +62,6 @@ const CountdownBox = ({ value, label }: CountdownBoxProps) => {
           rounded-2xl
           bg-gradient-to-b from-[#fdf6e3] to-[#f0e2c2]
           border-2 border-[#c8a25a]/60
-          shadow-[0_6px_18px_rgba(120,90,30,0.25),inset_0_1px_0_rgba(255,255,255,0.8)]
           text-red-950 font-extrabold
           text-2xl sm:text-3xl
           tabular-nums
@@ -71,9 +70,7 @@ const CountdownBox = ({ value, label }: CountdownBoxProps) => {
       >
         {display}
       </div>
-      <span className="text-xs sm:text-sm font-bold text-red-950/80">
-        {label}
-      </span>
+      <span className=" font-sans font-extrabold text-red-950/80">{label}</span>
     </div>
   );
 };
@@ -263,30 +260,33 @@ const ThirdSection = () => {
   return (
     <div
       ref={rootRef}
-      className="bg-[url('/envelope/bg2.png')] relative flex -top-25 justify-center flex-col items-center bg-center bg-cover w-full h-dvh"
+      className="bg-[url('/envelope/bg2.png')] px-4 relative flex -mt-30 justify-center flex-col items-center bg-center bg-cover w-full h-dvh"
     >
       <div className="bg-[#F7EFE2] opacity-60 absolute w-full h-full "></div>
 
-      <div className="flex flex-col justify-center items-center top-15 relative">
+      <div className="flex flex-col justify-center items-center -mt-10 relative">
         <div
           data-intro="title"
-          className="invisible z-2 mb-10 font-bold text-lg text-red-950"
+          className="invisible z-2 mb-10 font-bold text-lg text-red-950 "
         >
-          <p>يومنا المميز</p>
+          <p>لم يتبقَّ الكثير على أجمل ليالينا!</p>
         </div>
 
         <div
           data-intro="date"
-          className="invisible z-2 mb-8 font-bold text-lg text-red-950"
+          className="invisible z-2  mb-8 font-bold text-lg text-red-950"
         >
           <p>يوم الأحد :12/12/2026</p>
         </div>
 
         <div
           data-intro="text"
-          className="invisible z-2 mb-5 font-bold text-lg text-red-950"
+          className="invisible z-2 mb-5 font-bold text-sm text-center text-red-950 font-sans"
         >
-          <p>دعونا نستمتع معّا في</p>
+          <p>
+            كل ثانية تقرّبنا من لحظة طال انتظارها، ومن فرحة نتمنى أن نتشاركها
+            معكم.
+          </p>
         </div>
 
         {/* Real countdown: four boxes */}

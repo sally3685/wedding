@@ -49,6 +49,7 @@ import {
   type ReactNode,
 } from "react";
 import * as THREE from "three";
+import EnvelopeLoader from "./EnvelopeLoader";
 import { Canvas, useLoader, useThree } from "@react-three/fiber";
 import gsap from "gsap";
 
@@ -785,8 +786,13 @@ export default function EnvelopeOpening({
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(true);
   const [ready, setReady] = useState(false);
+  const [loaderGone, setLoaderGone] = useState(false);
 
-  const handleReady = useCallback(() => setReady(true), []);
+  // Wait two animation frames so the envelope has really been painted
+  // before the loader starts fading (no flash of an empty canvas).
+  const handleReady = useCallback(() => {
+    requestAnimationFrame(() => requestAnimationFrame(() => setReady(true)));
+  }, []);
 
   const handleDone = useCallback(() => {
     setVisible(false); // unmounts the canvas: frees the GPU, page is fully interactive
@@ -833,7 +839,7 @@ export default function EnvelopeOpening({
         touchAction: "manipulation",
         WebkitTapHighlightColor: "transparent",
         // Only while images load, so the page doesn't flash before the envelope shows.
-        background: ready ? "transparent" : paperColor,
+        background: "transparent",
       }}
     >
       <Canvas
@@ -871,6 +877,14 @@ export default function EnvelopeOpening({
           />
         </Suspense>
       </Canvas>
+      {!loaderGone && (
+        <EnvelopeLoader
+          paperColor={paperColor}
+          fading={ready}
+          onFaded={() => setLoaderGone(true)}
+          zIndex={zIndex + 1}
+        />
+      )}
     </div>
   );
 }

@@ -414,13 +414,13 @@ const FourthSection = () => {
         src="/envelope/fflower.png"
         origin={{ x: 50, y: 50 }}
         fit="cover"
-        className="absolute w-full h-35 -top-6"
+        className="absolute w-full h-50 -top-6"
       />
 
       <div className="flex flex-col justify-center w-full items-center relative -top-5 gap-4">
         <div
           data-intro="title"
-          className="invisible z-2 mb-1 font-bold text-lg text-red-950"
+          className="invisible z-2 mb-1 font-extrabold text-xl text-red-950"
         >
           <p>جدول اليوم</p>
         </div>
@@ -439,10 +439,10 @@ const FourthSection = () => {
               data-text
               className="invisible flex justify-center flex-col gap-0.5 items-center text-red-950"
             >
-              <p className="text-base leading-tight">الاستقبال</p>
+              <p className="text-lg font-bold w-30 text-center">الاستقبال</p>
               <p
                 data-glow
-                className="text-base leading-tight tabular-nums"
+                className="text-lg font-bold w-30 text-center tabular-nums"
                 dir="ltr"
               >
                 11:00 PM
@@ -456,10 +456,10 @@ const FourthSection = () => {
               data-text
               className="invisible flex flex-col justify-center gap-0.5 items-center text-red-950"
             >
-              <p className="text-base leading-tight">زفة العروس</p>
+              <p className="text-lg font-bold w-30 text-center">زفة العروس</p>
               <p
                 data-glow
-                className="text-base leading-tight tabular-nums"
+                className="text-lg font-bold w-30 text-center tabular-nums"
                 dir="ltr"
               >
                 11:00 PM
@@ -477,10 +477,10 @@ const FourthSection = () => {
               data-text
               className="invisible flex flex-col justify-center gap-0.5 items-center text-red-950"
             >
-              <p className="text-base leading-tight">المغادرة</p>
+              <p className="text-lg font-bold w-30 text-center">المغادرة</p>
               <p
                 data-glow
-                className="text-base leading-tight tabular-nums"
+                className="text-lg font-bold w-30 text-center tabular-nums"
                 dir="ltr"
               >
                 11:00 PM
@@ -495,7 +495,7 @@ const FourthSection = () => {
         src="/envelope/rings.png"
         origin={{ x: 50, y: 50 }}
         fit="cover"
-        className="absolute w-3/4 h-43 inset-e-0 bottom-0"
+        className="absolute w-3/4 h-50 inset-e-0 bottom-0"
       />
     </div>
   );

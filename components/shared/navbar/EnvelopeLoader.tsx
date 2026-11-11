@@ -35,7 +35,7 @@ export default function EnvelopeLoader({
           fontSize: 16,
           letterSpacing: "0.08em",
           color: "#7a6a55",
-          animation: "envelopeLoaderPulse 1.6s ease-in-out infinite",
+          animation: "envelopeLoaderPulse font-bold 1.6s ease-in-out infinite",
         }}
       >
         {text}
